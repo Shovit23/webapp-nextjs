@@ -1,0 +1,157 @@
+trigger:
+  branches:
+    include:
+      - "*"
+
+variables:
+  - template: /infra/variables/shared.yml
+
+  - name: isMain
+    value: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: building_feature_branch
+    displayName: Build, Test, Scan
+    condition: ne(variables['Build.SourceBranch'], 'refs/heads/main')
+    jobs:
+      - job: build_code
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: "18.x"
+            displayName: "Install Node.js"
+
+          - script: |
+              npm install
+              npx prisma generate
+            displayName: "install node modules and generate Prisma Client"
+
+          - task: Docker@2
+            inputs:
+              containerRegistry: 'DEV-DOCKER-DETAS'
+              repository: 'shovit23/detas'
+              command: 'buildAndPush'
+              Dockerfile: '**/Dockerfile'
+              tags: 'latest'
+            displayName: "DockerHub feature - build and push"
+        
+
+          - task: SonarQubePrepare@5
+            inputs:
+              SonarQube: ${{variables.SonarServiceConnection}}
+              scannerMode: "CLI"
+              configMode: "manual"
+              cliProjectKey: "DETAs-NextJS"
+              cliProjectName: "DETAs-NextJS"
+              cliSources: "."
+            displayName: "Prepare Sonar-Scan"
+
+          - task: SonarQubeAnalyze@5
+            inputs:
+              jdkversion: ${{variables.JdkVersionUI}}
+            displayName: "Initiate SonarScanner"
+
+
+          - task: SonarQubePublish@5
+            inputs:
+              pollingTimeoutSec: "300"
+            displayName: "Publish Sonar Report to SconarScanner"
+
+  - stage: build_master
+    condition: and(ne(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    displayName: Build Master
+    jobs:
+      - job: masterBuild
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: "18.x"
+            displayName: "Install Node.js"
+
+          - script: |
+              npm install
+              npx prisma generate
+            displayName: "install node modules and generate Prisma Client"
+          
+          - task: Docker@2
+            inputs:
+              repository: 'detas-dev-repos'
+              command: 'build'
+              Dockerfile: '**/Dockerfile'
+              tags: 'latest'
+            displayName: "Docker build for ECR"
+
+          - task: ECRPushImage@1
+            inputs:
+              awsCredentials: 'AWS-ECR-DEV-DETAS'
+              regionName: 'ap-south-2'
+              imageSource: 'imagename'
+              sourceImageName: 'detas-dev-repos'
+              repositoryName: 'detas'
+            displayName: "Push docker image to ECR"
+
+          - task: SonarQubePrepare@5
+            inputs:
+              SonarQube: ${{variables.SonarServiceConnection}}
+              scannerMode: "CLI"
+              configMode: "manual"
+              cliProjectKey: "DETAs-NextJS"
+              cliProjectName: "DETAs-NextJS"
+              cliSources: "."
+            displayName: "Prepare Sonar-Scan"
+
+          - task: SonarQubeAnalyze@5
+            inputs:
+              jdkversion: ${{variables.JdkVersionUI}}
+            displayName: "Initiate SonarScanner"
+
+          - task: SonarQubePublish@5
+            inputs:
+              pollingTimeoutSec: "300"
+            displayName: "Publish Sonar Report to SconarScanner"
+  
+           
+  - stage: deploy_to_ec2
+    condition: eq(and(ne(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/main')), true)
+    displayName: Deploy to EC2
+    jobs:
+      - job: Deploy_docker_image_to_EC2
+        steps:
+
+          - task: SSH@0
+            inputs:
+              sshEndpoint: 'AWS-SSH-DEV-DETAS'
+              runOptions: 'commands'
+              commands: '~/.local/bin/aws ecr get-login-password --region ap-south-2 | docker login --username AWS --password-stdin 211125665592.dkr.ecr.ap-south-2.amazonaws.com > /dev/null 2>&1'
+              readyTimeout: '20000'
+            displayName: "Authenticating Docker with AWS"
+
+          - task: SSH@0
+            inputs:
+              sshEndpoint: 'AWS-SSH-DEV-DETAS'
+              runOptions: 'commands'
+              commands: |
+                docker stop $(docker ps -q)
+                docker rm $(docker ps -a -q)
+                docker rmi -f $(docker images -aq)
+              readyTimeout: '20000'
+            displayName: "Removing existing docker images and containers"
+
+          - task: SSH@0
+            inputs:
+              sshEndpoint: 'AWS-SSH-DEV-DETAS'
+              runOptions: 'commands'
+              commands: 'docker pull 211125665592.dkr.ecr.ap-south-2.amazonaws.com/detas:latest'
+              readyTimeout: '20000'
+            displayName: "Pulling latest ECR image to EC2"
+
+          - task: SSH@0
+            inputs:
+              sshEndpoint: 'AWS-SSH-DEV-DETAS'
+              runOptions: 'commands'
+              commands: 'docker run -d -p 80:3000 211125665592.dkr.ecr.ap-south-2.amazonaws.com/detas:latest'
+              readyTimeout: '20000'
+            displayName: "Running docker image on port 80"

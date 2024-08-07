@@ -1,0 +1,9 @@
+variables:
+- group: DETAs-shared
+
+- name: SonarServiceConnection
+  value: DETAs
+
+- name: JdkVersionUI
+  value: JAVA_HOME_11_X64
+

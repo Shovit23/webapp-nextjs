@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .card {
+    @apply w-72 h-96 bg-white shadow-lg rounded-lg flex flex-col p-6 transition duration-300; /* Keep card dimensions and styling */
+  }
+
+  .card:hover {
+    @apply hover:shadow-2xl hover:scale-105 hover:bg-del-green; /* Ensure 'del-green' is defined in your Tailwind config */
+  }
+
+  .card-image {
+    @apply h-32 w-32 rounded-lg object-cover self-center mb-4; /* Ensure images are uniformly styled */
+  }
+
+  .card-heading {
+    @apply text-2xl font-bold mb-2 text-gray-800 text-center; /* Consistent heading styling */
+  }
+
+  .card-text {
+    @apply text-gray-600 text-center; /* Consistent text styling */
+  }
+}
