@@ -1,25 +1,38 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: detas
+  name: mysql
   labels:
-    app: detas
+    app: mysql
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
-      app: detas
+      app: mysql
   template:
     metadata:
       labels:
-        app: detas
+        app: mysql
     spec:
       containers:
-      - name: detas
-        image: shovit23/detas:latest
+      - name: mysql
+        image: mysql:latest
         env:
-          - name: DATABASE_URL
-            value: "mysql://root:root@mysql:3306/detas"
+        - name: MYSQL_DATABASE
+          value: "detas"
+        - name: MYSQL_USER
+          value: "detas"
+        - name: MYSQL_PASSWORD
+          value: "detas"
+        - name: MYSQL_ROOT_PASSWORD
+          value: "root"
         ports:
-        - containerPort: 3000
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysql-initdb
+          mountPath: docker-entrypoint-initdb.d
+    volumes:
+    - name: mysql-initdb
+      configMap:
+        name: mysql-initdb-config
 

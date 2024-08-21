@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: detas
+  labels:
+    app: detas
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: detas
+  template:
+    metadata:
+      labels:
+        app: detas
+    spec:
+      containers:
+      - name: detas
+        image: shovit23/detas:latest
+        env:
+        - name: DATABASE_URL
+          value: "mysql"
+        ports:
+        - containerPort: 3000
+
