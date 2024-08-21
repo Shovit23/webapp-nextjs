@@ -15,24 +15,24 @@ spec:
         app: mysql
     spec:
       containers:
-      - name: mysql
-        image: mysql:latest
-        env:
-        - name: MYSQL_DATABASE
-          value: "detas"
-        - name: MYSQL_USER
-          value: "detas"
-        - name: MYSQL_PASSWORD
-          value: "detas"
-        - name: MYSQL_ROOT_PASSWORD
-          value: "root"
-        ports:
-        - containerPort: 3306
-        volumeMounts:
+        - name: mysql
+          image: mysql:latest
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "root"
+            - name: MYSQL_DATABASE
+              value: "detas"
+            - name: MYSQL_USER
+              value: "detas"
+            - name: MYSQL_PASSWORD
+              value: "admin"
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: mysql-initdb
+              mountPath: docker-entrypoint-initdb.d
+      volumes:
         - name: mysql-initdb
-          mountPath: docker-entrypoint-initdb.d
-    volumes:
-    - name: mysql-initdb
-      configMap:
-        name: mysql-initdb-config
+          configMap:
+            name: mysql-initdb-config
 
